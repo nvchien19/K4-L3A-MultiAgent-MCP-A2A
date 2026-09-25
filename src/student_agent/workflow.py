@@ -9,10 +9,6 @@ from .trace import TraceWriter
 async def solve_case(
     case: dict[str, Any], gateway: EvidenceGateway, trace: TraceWriter
 ) -> dict[str, Any]:
-    """Implement the L3A coordinator and specialist-agent workflow here.
-
-    The starter kit intentionally does not generate a fallback answer: submitting an
-    invented answer or evidence reference would violate the competition contract.
-    """
-    del case, gateway, trace
-    raise NotImplementedError("Implement the L3A multi-agent workflow in solve_case()")
+    from .multi_agent import MultiAgentSystem
+    system = MultiAgentSystem(gateway, trace)
+    return await system.run(case)
