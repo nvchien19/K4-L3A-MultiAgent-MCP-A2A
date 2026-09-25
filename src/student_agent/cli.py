@@ -21,30 +21,41 @@ def _root(value: str) -> Path:
 
 async def _show_tools(root: Path) -> None:
     settings = Settings.load(root)
-    contracts = Contracts(root / "contracts" / "schemas")
+    contracts = Contracts()
     async with connect_gateway(settings.mcp_endpoint, settings.team_api_key, contracts) as gateway:
-        for tool in await gateway.list_tools():
-            print(tool)
+        catalog = await gateway.discover_tools()
+        print(json.dumps([tool.as_dict() for tool in catalog], ensure_ascii=False, indent=2))
 
 
-async def _run(root: Path) -> None:
+async def _run(root: Path, selected_cases: list[str] | None = None) -> None:
     settings = Settings.load(root)
     case_set = load_case_set(root)
-    contracts = Contracts(root / "contracts" / "schemas")
+    selected = tuple(dict.fromkeys(selected_cases or case_set.case_ids))
+    if selected_cases is not None and len(selected) != 1:
+        raise ValueError("run accepts exactly one --case value")
+    unknown = sorted(set(selected) - set(case_set.case_ids))
+    if unknown:
+        raise ValueError(f"unknown case IDs: {unknown}")
+    contracts = Contracts()
     output_root = root / "outputs"
-    trace_path = root / "traces" / "trace.jsonl"
+    trace_root = root / "traces"
     output_root.mkdir(parents=True, exist_ok=True)
-    trace_path.parent.mkdir(parents=True, exist_ok=True)
-    for stale in output_root.glob("*.json"):
-        stale.unlink()
-    trace_path.unlink(missing_ok=True)
+    trace_root.mkdir(parents=True, exist_ok=True)
+    if selected_cases is None:
+        for stale in output_root.glob("*.json"):
+            stale.unlink()
+        trace_path = trace_root / "trace.jsonl"
+        trace_path.unlink(missing_ok=True)
+    else:
+        trace_path = trace_root / f"{selected[0]}.jsonl"
+        trace_path.unlink(missing_ok=True)
     trace = TraceWriter(trace_path, contracts)
 
     async with connect_gateway(settings.mcp_endpoint, settings.team_api_key, contracts) as gateway:
         discovered_tools = await gateway.list_tools()
         if not discovered_tools:
             raise RuntimeError("MCP Gateway returned no tools")
-        for case_id in case_set.case_ids:
+        for case_id in selected:
             case = case_set.cases[case_id]
             trace.emit(case_id=case_id, event_type="case_received", actor="coordinator")
             output = await solve_case(case, gateway, trace)
@@ -66,7 +77,8 @@ def parser() -> argparse.ArgumentParser:
     commands = result.add_subparsers(dest="command", required=True)
     commands.add_parser("validate-inputs", help="validate case-set.json and all 100 inputs")
     commands.add_parser("mcp-tools", help="authenticate and list discovered MCP tools")
-    commands.add_parser("run", help="run the implemented workflow for all cases")
+    run = commands.add_parser("run", help="run the workflow for all cases or one case")
+    run.add_argument("--case", action="append", help="run exactly one case ID")
     commands.add_parser("validate", help="validate outputs and observable trace")
     package = commands.add_parser("package", help="validate and build the submission ZIP")
     package.add_argument("--output", default="dist/submission.zip")
@@ -86,10 +98,10 @@ def main() -> None:
         elif args.command == "mcp-tools":
             asyncio.run(_show_tools(root))
         elif args.command == "run":
-            asyncio.run(_run(root))
+            asyncio.run(_run(root, args.case))
         elif args.command == "validate":
             case_set = load_case_set(root)
-            contracts = Contracts(root / "contracts" / "schemas")
+            contracts = Contracts()
             _, trace = validate_artifacts(root, case_set, contracts)
             print(f"OK: {len(case_set.case_ids)} outputs / {len(trace)} trace events")
         elif args.command == "package":

@@ -75,7 +75,9 @@ inputs/
 
 ## 4. Sử dụng MCP
 
-MCP Gateway cung cấp evidence về order, item, payment, shipment, seller và policy. Mọi call sẽ được server audit nên mọi người lưu ý config đúng để đảm bảo quyền lợi
+MCP Gateway cung cấp evidence về order, item, payment, shipment, seller và policy. Mọi call sẽ được server audit nên mọi người lưu ý config đúng để đảm bảo quyền lợi.
+
+Trước khi chạy workflow, mở workspace `/l3a`, nhập Team API Key để tạo active run. MCP chỉ trả evidence khi run còn hiệu lực và cùng team/variant/case; lỗi chung `Error executing tool ...` thường có nghĩa run chưa được tạo hoặc đã hết hạn.
 
 Xem các tool hiện có:
 
@@ -174,7 +176,13 @@ trace.jsonl
 outputs/<case_id>.json
 ```
 
-Không đưa source, input, `.env`, API key hoặc debug log vào ZIP. Sau đó upload `dist/submission.zip` tại workspace `/l3a`
+Không đưa source, input, `.env`, API key hoặc debug log vào ZIP. Upload `dist/submission.zip` tại workspace `/l3a` trước khi active run hết hạn; không tạo run mới sau khi đã thu thập evidence vì evidence được gắn với run hiện tại.
+
+Kết quả đã tạo:
+
+- `outputs/`: đủ 100 JSON, mỗi output đều có evidence ref.
+- `traces/trace.jsonl`: 2160 trace event.
+- `dist/submission.zip`: 102 entry, pass `day09 validate` và kiểm tra toàn vẹn ZIP.
 
 ## Tiêu chí chấm điểm công khai
 

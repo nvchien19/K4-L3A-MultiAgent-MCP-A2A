@@ -15,13 +15,25 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.4,<9", "ruff>=0.12,<1"]
+dev = ["build>=1.2,<2", "pytest>=8.4,<9", "ruff>=0.12,<1"]
 
 [project.scripts]
 day09 = "student_agent.cli:main"
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools]
+packages = ["student_agent", "student_agent.contract_resources"]
+include-package-data = true
+
+[tool.setuptools.package-dir]
+student_agent = "src/student_agent"
+"student_agent.contract_resources" = "contracts"
+
+[tool.setuptools.package-data]
+"student_agent.contract_resources" = [
+    "registry/*.json",
+    "schemas/*.json",
+    "scoring/*.json",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
